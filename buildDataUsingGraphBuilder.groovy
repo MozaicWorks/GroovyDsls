@@ -5,6 +5,7 @@ import groovy.transform.ToString
 import groovy.transform.EqualsAndHashCode
 import java.text.SimpleDateFormat
 import org.codehaus.groovy.runtime.StringGroovyMethods
+import static MyObjectGraphBuilder.*
 
 @EqualsAndHashCode
 class Duration{
@@ -60,46 +61,58 @@ class User{
     String lastName
 }
 
+class MyObjectGraphBuilder extends ObjectGraphBuilder{
+    def defaults
+    static final initWithDefaults = "INIT"
 
-def setDefaults(User user){
-    if(user.firstName == null) user.firstName = "A"
-    if(user.lastName == null) user.lastName = "B"
-}
-
-def setDefaults(Organizer organizer){
-    if(organizer.user == null){
-        organizer.user = new User()
-        setDefaults(organizer.user)
+    MyObjectGraphBuilder(defaults){
+        super()
+        this.defaults = defaults
+        this.addPostNodeCompletionDelegate{a, parent, node -> setDefaults(node) }
     }
-}
-
-def setDefaults(Event event){
-    if(event.organizer == null){
-        event.organizer = new Organizer()
-        setDefaults(event.organizer)
-    }
-
-    if(event.name == null) event.name = "Awesome event"
-    if(event.date == null) event.date = new Date()
-    if(event.duration == null) event.duration = new Duration(numberOfDays: 1)
-}
-
-def setDefaults(Object object){
-   // A default to avoid runtime errors 
+    
+   def setDefaults(object){
+        def searchKey = (object.class.name - "com.").toLowerCase()
+        defaults[searchKey].each{key, value ->
+            if(object."$key" == null) {
+                if(value == initWithDefaults){
+                    def className = this.classNameResolver.resolveClassname(key)
+                    def newObject = this.class.classLoader.loadClass( className, true, false )?.newInstance()
+                    setDefaults(newObject)
+                    object."$key" = newObject
+                } else{
+                    object."$key" = value
+                }
+            }
+        }
+   }
 }
 
 use(ConvertStringToDateCategory, DurationCategory){
-    def builder = new ObjectGraphBuilder()                          
+    def defaults = [
+        user: [
+            firstName: "A",
+            lastName: "B"
+        ],
+        organizer: [
+            user: initWithDefaults 
+        ],
+        event: [
+            name: "Awesome event",
+            organizer: initWithDefaults,
+            date: new Date(),
+            duration: 1.days
+        ] 
+    ]
+
+    def builder = new MyObjectGraphBuilder(defaults)
     builder.classLoader = this.class.classLoader                    
     builder.classNameResolver = "com" 
-    builder.addPostNodeCompletionDelegate{a, parent, node ->
-        setDefaults(node)
-    }
 
     def anEvent = builder.with{
         event(
             date: "23/10/2016" as Date,
-            duration: 2.days,
+            duration: 2.days
         )
     }
 
