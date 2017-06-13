@@ -73,20 +73,21 @@ class MyObjectGraphBuilder extends ObjectGraphBuilder{
     
    def setDefaults(object){
         def searchKey = (object.class.name - "com.").toLowerCase()
-        defaults[searchKey].each{key, value ->
-            if(object."$key" == null) {
-                if(value == initWithDefaults){
-                    def className = this.classNameResolver.resolveClassname(key)
-                    def newObject = this.class.classLoader.loadClass( className, true, false )?.newInstance()
-                    setDefaults(newObject)
-                    object."$key" = newObject
-                } else{
-                    object."$key" = value
-                }
-            }
-        }
-   }
+        def defaultsForObject = defaults[searchKey]
+
+        defaultsForObject.findAll{key, value -> object."$key" == null && value == initWithDefaults}.each{key, value -> createInstanceAndSetDefaults(object, key)}
+
+        defaultsForObject.findAll{key, value -> object."$key" == null && value != initWithDefaults}.each{key, value -> object."$key" = value }
+    }
+
+    def createInstanceAndSetDefaults(object, key){
+        def className = this.classNameResolver.resolveClassname(key)
+        def newObject = this.class.classLoader.loadClass( className, true, false )?.newInstance()
+        setDefaults(newObject)
+        object."$key" = newObject
+    }
 }
+
 
 use(ConvertStringToDateCategory, DurationCategory){
     def defaults = [
