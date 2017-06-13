@@ -75,14 +75,30 @@ class MyObjectGraphBuilder extends ObjectGraphBuilder{
         def searchKey = (object.class.name - "com.").toLowerCase()
         def defaultsForObject = defaults[searchKey]
 
-        defaultsForObject.findAll{key, value -> object."$key" == null && value == initWithDefaults}.each{key, value -> createInstanceAndSetDefaults(object, key)}
+        defaultsForObject.findAll{key, value -> willInitWithDefaults(object, key, value)}.each{key, _ -> createInstanceAndSetDefaults(object, key)}
 
-        defaultsForObject.findAll{key, value -> object."$key" == null && value != initWithDefaults}.each{key, value -> object."$key" = value }
+        defaultsForObject.findAll{key, value -> willSetValueToDefault(object, key, value)}.each{key, value -> object."$key" = value }
     }
 
-    def createInstanceAndSetDefaults(object, key){
+    private static willInitWithDefaults(object, key, value){
+        valueIsNotInitialized(object, key) && defaultIsInitWithDefaults(value)
+    }
+
+    private static willSetValueToDefault(object, key, value){
+        valueIsNotInitialized(object, key) && !defaultIsInitWithDefaults(value)
+    }
+
+    private static defaultIsInitWithDefaults(value){
+        value == initWithDefaults
+    }
+
+    private static valueIsNotInitialized(object, key){
+        object."$key" == null 
+    }
+
+    private createInstanceAndSetDefaults(object, key){
         def className = this.classNameResolver.resolveClassname(key)
-        def newObject = this.class.classLoader.loadClass( className, true, false )?.newInstance()
+        def newObject = newInstanceResolver.newInstance(Class.forName(className), [:])
         setDefaults(newObject)
         object."$key" = newObject
     }
@@ -96,7 +112,7 @@ use(ConvertStringToDateCategory, DurationCategory){
             lastName: "B"
         ],
         organizer: [
-            user: initWithDefaults 
+            user: initWithDefaults
         ],
         event: [
             name: "Awesome event",
