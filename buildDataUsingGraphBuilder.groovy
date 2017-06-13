@@ -77,7 +77,7 @@ class MyObjectGraphBuilder extends ObjectGraphBuilder{
 
         defaultsForObject.findAll{key, value -> willInitWithDefaults(object, key, value)}.each{key, _ -> createInstanceAndSetDefaults(object, key)}
 
-        defaultsForObject.findAll{key, value -> willSetValueToDefault(object, key, value)}.each{key, value -> object."$key" = value }
+        defaultsForObject.findAll{key, value -> willSetValueToDefault(object, key, value)}.each{key, value -> setValue(object, key, value)}
     }
 
     private static willInitWithDefaults(object, key, value){
@@ -94,6 +94,10 @@ class MyObjectGraphBuilder extends ObjectGraphBuilder{
 
     private static valueIsNotInitialized(object, key){
         object."$key" == null 
+    }
+
+    private static setValue(object, key, value){
+        object."$key" = value 
     }
 
     private createInstanceAndSetDefaults(object, key){
